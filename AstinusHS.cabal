@@ -1,0 +1,15 @@
+name:              AstinusHS
+version:           1.0
+Build-Type:        Simple
+cabal-version:     >= 1.2
+
+executable AstinusHS
+  main-is:         Main.hs
+  hs-source-dirs:  src
+  build-depends:   base, mtl, parsec, containers, split, regex-base, regex-tdfa
+
+test-suite reference
+  Hs-Source-Dirs:       test, src
+  Type:                 exitcode-stdio-1.0
+  Main-Is:              Main_Test.hs
+  Build-Depends:        HUnit

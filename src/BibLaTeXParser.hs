@@ -87,18 +87,22 @@ latexSpecial :: Parsec.Parsec String ParserState String
 latexSpecial = do
     accentSel <- Parsec.oneOf $ concat (Map.keys latexSpecials ++ Map.keys latexAccents)
     what <- Parsec.letter Parsec.<|> Parsec.between (Parsec.char '{') (Parsec.char '}') Parsec.letter
-    let accentMod = Map.lookup [accentSel] latexSpecials
+    let accentMod = Map.lookup [accentSel] latexAccents
     return $ case accentMod of
-        Just " " -> " "
         Just accentModUTF -> what : accentModUTF
-        _ -> ['\\', accentSel] ++ [what]
+        _ -> let repl = Map.lookup [accentSel] latexSpecials in
+             case repl of
+                Just " " -> "# #"
+                Just reply -> reply
+                _ -> ['\\', accentSel] ++ [what]
 
 latexNormal :: Parsec.Parsec String ParserState String
 latexNormal = do
     what <- Parsec.many1 Parsec.letter
+    _ <- Parsec.spaces
     let res = Map.lookup what latexNormals
     return $ case res of
-        Just s -> s
+        Just s -> "@"++s++"@"
         _ -> '\\' : what
 
 

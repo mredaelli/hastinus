@@ -6,7 +6,7 @@ cabal-version:     >= 1.2
 executable AstinusHS
   main-is:         Main.hs
   hs-source-dirs:  src
-  build-depends:   base, mtl, parsec, containers, split, regex-base, regex-tdfa
+  build-depends:   base, mtl, parsec, containers, split
 
 test-suite reference
   Hs-Source-Dirs:       test, src

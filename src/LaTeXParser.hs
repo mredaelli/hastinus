@@ -1,12 +1,11 @@
 module LaTeXParser where
 
-import qualified Text.Parsec as Parsec
-import Text.Parsec ((<?>), (<|>))
-
 import Data.Char
 
 import Data.Map (Map)
 import qualified Data.Map as Map
+
+import Text.Parsec
 
 type ParserState = Map String String
 
@@ -36,43 +35,40 @@ endash = chr 0x2013
 emdash = chr 0x2014
 nonbreak = chr 0x00a0
 
-latexCommand :: Parsec.Parsec String ParserState String
+latexCommand :: Parsec String ParserState String
 latexCommand = do
-    _ <- Parsec.char '\\'
-    latexNonAlpha Parsec.<|>  latexNormal
-
-latexNonAlpha = latexAccent Parsec.<|> latexSpecial
+    _ <- char '\\'
+    latexAccent <|> latexSpecial <|> latexNormal
 
 ijNoAccent = do
-    _ <- Parsec.char '\\'
-    Parsec.char 'i' Parsec.<|> Parsec.char 'j'
+    _ <- char '\\'
+    char 'i' <|> char 'j'
 
 latexAccent = do
-    accentSel <- Parsec.oneOf $ concat (Map.keys latexAccents)
-    what <- (Parsec.letter Parsec.<|> ijNoAccent) Parsec.<|> Parsec.between (Parsec.char '{') (Parsec.char '}') (Parsec.letter Parsec.<|> ijNoAccent)
+    accentSel <- oneOf $ concat (Map.keys latexAccents)
+    what <- (letter <|> ijNoAccent) <|> between (char '{') (char '}') (letter <|> ijNoAccent)
     let accentMod = Map.lookup [accentSel] latexAccents
     return $ case accentMod of
         Just accentModUTF -> what : accentModUTF
         _ -> ['\\', accentSel] ++ [what]
 
 latexSpecial = do
-    sel <- Parsec.oneOf " "
-    case sel of
-        ' ' -> return  " "
+    sel <- oneOf $ concat (Map.keys latexSpecials)
+    let spec = Map.lookup [sel] latexSpecials
+    return $ case spec of
+            Just specUTF -> specUTF
+            _ -> '\\' : [sel]
 
 latexNormal = do
-    what <- Parsec.many1 Parsec.letter
-    _ <- Parsec.spaces
+    what <- many1 letter
+    _ <- spaces
     let res = Map.lookup what latexNormals
     return $ case res of
         Just s -> s
         _ -> '\\' : what
 
-
-
 latexSpecials = Map.fromList [
     (" ", " "),
---    ("~", "~"),
     ("%", "%"),
     ("{", "{"),
     ("$", "$"),
@@ -80,6 +76,7 @@ latexSpecials = Map.fromList [
     ("#", "#"),
     ("&", "&"),
     ("}", "}")
+    --("~", "~"),
     --("{}", "")
     --("[^][{][}]", "^"),
     --("[~][{][}]", "~")

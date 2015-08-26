@@ -1,6 +1,7 @@
 module Main where
 
-import BibLaTeXParser (parseFile, parseEntry, toBibTeX)
+import BibLaTeXParser (parseFile, parseEntry)
+import BibLaTeX (toBibTeX)
 
 import System.Exit
 
@@ -43,11 +44,6 @@ biblatexTest = TestCase $ do
 
 
 runTests = runTestTT . TestList $ map fail1 shouldFail ++ map pass1 shouldPass ++ [biblatexTest]
-
-latexCommands = [
-        ("Cia\\\"o", "Cia")
-    ]
-
 
 main :: IO ()
 main = do

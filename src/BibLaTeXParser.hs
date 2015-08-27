@@ -100,3 +100,5 @@ stringEntryParser = do
 parseFile = runParser (sepEndBy entryParser (many $ noneOf ['@'])) Map.empty ""
 
 parseEntry = runParser entryParser Map.empty ""
+
+parseLatex = runParser (bibtexString False) Map.empty ""

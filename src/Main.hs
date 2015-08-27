@@ -9,6 +9,10 @@ import qualified Data.Map as Map
 
 import System.IO
 
+import Data.Text.ICU as ICU (compare, fromString, fromText, normalize, isNormalized, NormalizationMode( NFD ) )
+import Data.Text (pack, unpack)
+
+
 main = do
    hSetEncoding stdout utf8
    let result = runParser (bibtexString False) Map.empty  "" "This is an \\important example of the many text commands of LaTeX. \
@@ -22,5 +26,6 @@ main = do
    case result of
        Right v -> do
             --let res = map toBibTeX v
-            putStrLn v
+            let ddd = (isNormalized NFD . pack) v
+            putStrLn $ show ddd
        Left err -> putStrLn ("whoops, error: "++show err)

@@ -26,6 +26,6 @@ main = do
    case result of
        Right v -> do
             --let res = map toBibTeX v
-            let ddd = (isNormalized NFD . pack) v
-            putStrLn $ show ddd
+            --let res = (isNormalized NFD . pack) v
+            putStrLn  v
        Left err -> putStrLn ("whoops, error: "++show err)

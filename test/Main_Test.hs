@@ -11,7 +11,7 @@ import Control.Monad
 import Control.Arrow (second)
 
 import Data.Text.ICU as ICU (compare, fromString, fromText)
-import Data.Text (pack)
+import Data.Text (Text, pack)
 
 import Test.HUnit
 
@@ -77,6 +77,7 @@ assertParseEquivalence str1 str2 = case parseLatex str1 of
     Left _ -> assertFailure $ "Should have parsed, but didn't: " ++ str1
     Right s -> assertBool "LaTeX string error:" $ ICU.compare [] (pack s) str2 == EQ
 
+equivalenceTests :: [(String, Text)] -> [TestCase]
 equivalenceTests = map (TestCase . uncurry assertParseEquivalence) equivalences
 
 fail1 str = TestCase $ assertDoesntParse str
@@ -93,8 +94,10 @@ runTests = runTestTT . TestList $
     -- biblatexTest
     -- map fail1 shouldFail
     -- ++ map pass1 shouldPass
-    -- ++ equivalenceTests
-    [trivialTest]
+    -- ++
+    -- equivalenceTests
+    -- [trivialTest]
+    [TestCase . assertParseEquivalence "ciao" $ pack "ciao"]
 
 main :: IO ()
 main = do

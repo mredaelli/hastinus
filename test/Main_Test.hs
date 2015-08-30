@@ -1,9 +1,11 @@
 module Main where
 
-import BibLaTeXParser (parseFile, parseEntry, parseLatex)
+import BibLaTeXParser (parseFile, parseEntry, bibtexString)
+import LaTeXParser (latexCommandName, parse)
 import BibLaTeX (toBibTeX)
 
 import System.Exit
+import System.IO
 
 import Data.Char
 import Data.Either
@@ -11,35 +13,35 @@ import Control.Monad
 import Control.Arrow (second)
 
 import Data.Text.ICU as ICU (compare, fromString, fromText)
-import Data.Text (Text, pack)
+import Data.Text (Text, pack, unpack)
+
+import Data.List.Split
 
 import Test.HUnit
 
 
-assertDoesntParse :: String -> Assertion
-assertDoesntParse str = case parseFile str of
-    Right _ -> assertFailure $ "Should have failed, but parsed: " ++ str
-    Left _ -> return ()
+assertParseEquivalence parser str1 str2 = case parse parser str1 of
+    Left _ -> assertFailure $ "Should have parsed, but didn't: " ++ str1
+    Right s ->
+        let res = ICU.compare [] (pack s) str2
+        in assertEqual ("LaTeX string error:\n"++ s ++ "\n" ++ (unpack str2)) EQ res
 
-assertParse :: String -> Assertion
-assertParse str = case parseFile str of
-    Left _ -> assertFailure $ "Should have parsed, but didn't: " ++ str
-    Right _ -> return ()
 
-shouldFail = [
-    "@Article{key03, title = \"The lonely { brace\",  }",
-    "@Article{key01,  author = \"Simon \\\"the saint\\\" Templar\" }"
-    --, "@Article{key01, title = { The history of @ sign } }" this actually works in BibLateX
+--------------------------------------------
+
+latexCommandNameTestCases = map (second pack) [
+    ("\\text{fdf}", "text"),
+    ("\\^afksdlj", "^"),
+    ("\\H{s}", "H"),
+    ("\\ ", " "),
+    ("\\aa{}fdf", "aa")
     ]
 
-shouldPass = [
-     "@Article{key03, title = \"A {bunch {of} braces {in}} title\" } ",
-     "@Article{key01,  author = \"Simon {\"}the {saint\"} Templar\" }" ,
-     "@Article{key01, title = \"The history of @ sign\" }"
-     ]
+latexCommandNameTests = map (TestCase . uncurry (assertParseEquivalence latexCommandName)) latexCommandNameTestCases
 
+--------------------------------------------
 
-equivalences = map (second pack) [
+equivalenceTestCases = map (second pack) [
     ("More than 50\\% of mice earns less than 1\\$ per day \\{which is totally un\\_ac\\_cep\\_ta\\_ble!\\}",
      "More than 50% of mice earns less than 1$ per day {which is totally un_ac_cep_ta_ble!}"),
     ("Let's see what happens with {unbalanced braces inside braces: \\{ }. Nothing much?",
@@ -50,13 +52,12 @@ equivalences = map (second pack) [
      "% of #s that are useful? Hard & tough to tell}"),
     ("A pretty picture: \\\\\\#/. Almost a smilie",
      "A pretty picture: \\#/. Almost a smilie"),
-
-     ("",
+     ("{}",
       ""),
      -- lorem text from http://generator.lorem-ipsum.info/
      -- conversion to TeX with http://w2.syronex.com/jmr/latex-symbols-converter
-     ("Des fames am\\`{e}t habitasse dapid\\^{u}s sagittis vari\\^{u}s int\\`{e}g\\`{e}r interdum sapien velit eleifend aptent\\'{e} vestibulum, lectus ac ligula feugiat fusc\\'{e} fringilla ultr\\^{u}c\\'{e}as arc\\^{u} himenaeos d\\`{e}s semper tortor f\\'{e}lis pharetra, hac aenean portitors\\'{e} dui quis pulv\\^{\\i}ar habitant himenaeos litor\\'{e} risus suscipit \\`{e}st fac\\^{\\i}lisis mauris. Augue lorem aliquam sed morbi risius odio placerat morbi taciti, dui aliquet \\\"{\\i}psum sagittis congue facilisis s\\'{e}d cong\\'{e}s quisqu\\'{e}es faucibus, dapid\\^{u}s plac\\'{e}rat primis bib\\'{e}ndum null\\\"{a} amet curabitur vehicula duis n\\^{\\i}bh. Molestie p\\'{e}er mass\\`{e} pr\\'{e}tium dictumst quam nisl \\`{e}st class ut li\\c{c}l\\`{a} d\\\"{\\i}am risus, justo nam\\'{e} fusce tristiqu\\'{e} blandit massa euismod n\\`{e}tus cubli\\^{a} faucibus ultricies \\\"{\\i}psum \\\"{\\i}n, eleifend nam\\'{e} class dictumst ullamcorp\\'{e}r ante d'hac malesuada ultrices aliquet curabitur 34, 908\\mbox{\\texteuro}{} fermentum des int\\`{e}g\\`{e}r lilitoxic. Fringlilia mal\\'{e}sdum tac\\^{\\i}ti\\'{e} vari\\^{u}s condimentum s\\`{e}n\\`{e}ctus lac\\^{\\i}na sociosqu pulv\\^{\\i}ar, n\\^{u}llam n\\'{e}c nostra quisqu\\'{e}es a\\'{e}nean odio t\\`{u}rpus vulputat\\'{e} \\'{e}tiam, bibendum morbi sapien.",
-      "Des fames amèt habitasse dapidûs sagittis variûs intègèr interdum sapien velit eleifend aptenté vestibulum, lectus ac ligula feugiat fuscé fringilla ultrûcéas arcû himenaeos dès semper tortor félis pharetra, hac aenean portitorsé dui quis pulvîar habitant himenaeos litoré risus suscipit èst facîlisis mauris. Augue lorem aliquam sed morbi risius odio placerat morbi taciti, dui aliquet ïpsum sagittis congue facilisis séd congés quisquées faucibus, dapidûs placérat primis bibéndum nullä amet curabitur vehicula duis nîbh. Molestie péer massè prétium dictumst quam nisl èst class ut liçlà dïam risus, justo namé fusce tristiqué blandit massa euismod nètus cubliâ faucibus ultricies ïpsum ïn, eleifend namé class dictumst ullamcorpér ante d'hac malesuada ultrices aliquet curabitur 34, 908€ fermentum des intègèr lilitoxic. Fringlilia malésdum tacîtié variûs condimentum sènèctus lacîna sociosqu pulvîar, nûllam néc nostra quisquées aénean odio tùrpus vulputaté étiam, bibendum morbi sapien."),
+     ("Des fames am\\`{e}t habitasse dapid\\^{u}s sagittis vari\\^{u}s int\\`{e}g\\`{e}r interdum sapien velit eleifend aptent\\'{e} vestibulum, lectus ac ligula feugiat fusc\\'{e} fringilla ultr\\^{u}c\\'{e}as arc\\^{u} himenaeos d\\`{e}s semper tortor f\\'{e}lis pharetra, hac aenean portitors\\'{e} dui quis pulv\\^{\\i}ar habitant himenaeos litor\\'{e} risus suscipit \\`{e}st fac\\^{\\i}lisis mauris. Augue lorem aliquam sed morbi risius odio placerat morbi taciti, dui aliquet \\\"{\\i}psum sagittis congue facilisis s\\'{e}d cong\\'{e}s quisqu\\'{e}es faucibus, dapid\\^{u}s plac\\'{e}rat primis bib\\'{e}ndum null\\\"{a} amet curabitur vehicula duis n\\^{\\i}bh. Molestie p\\'{e}er mass\\`{e} pr\\'{e}tium dictumst quam nisl \\`{e}st class ut li\\c{c}l\\`{a} d\\\"{\\i}am risus, justo nam\\'{e} fusce tristiqu\\'{e} blandit massa euismod n\\`{e}tus cubli\\^{a} faucibus ultricies \\\"{\\i}psum \\\"{\\i}n, eleifend nam\\'{e} class dictumst ullamcorp\\'{e}r ante d'hac malesuada ultrices aliquet curabitur 34, 908 fermentum des int\\`{e}g\\`{e}r lilitoxic. Fringlilia mal\\'{e}sdum tac\\^{\\i}ti\\'{e} vari\\^{u}s condimentum s\\`{e}n\\`{e}ctus lac\\^{\\i}na sociosqu pulv\\^{\\i}ar, n\\^{u}llam n\\'{e}c nostra quisqu\\'{e}es a\\'{e}nean odio t\\`{u}rpus vulputat\\'{e} \\'{e}tiam, bibendum morbi sapien.",
+      "Des fames amèt habitasse dapidûs sagittis variûs intègèr interdum sapien velit eleifend aptenté vestibulum, lectus ac ligula feugiat fuscé fringilla ultrûcéas arcû himenaeos dès semper tortor félis pharetra, hac aenean portitorsé dui quis pulvîar habitant himenaeos litoré risus suscipit èst facîlisis mauris. Augue lorem aliquam sed morbi risius odio placerat morbi taciti, dui aliquet ïpsum sagittis congue facilisis séd congés quisquées faucibus, dapidûs placérat primis bibéndum nullä amet curabitur vehicula duis nîbh. Molestie péer massè prétium dictumst quam nisl èst class ut liçlà dïam risus, justo namé fusce tristiqué blandit massa euismod nètus cubliâ faucibus ultricies ïpsum ïn, eleifend namé class dictumst ullamcorpér ante d'hac malesuada ultrices aliquet curabitur 34, 908 fermentum des intègèr lilitoxic. Fringlilia malésdum tacîtié variûs condimentum sènèctus lacîna sociosqu pulvîar, nûllam néc nostra quisquées aénean odio tùrpus vulputaté étiam, bibendum morbi sapien."),
      ("Czech: Lo\\v{r}\\'{e}m ips\\'{u}m dol\\'{o}r sit amet, no vita\\'{e} graecis \\v{s}ed, \\r{u}t f\\r{u}git tan\\v{t}as tra\\v{c}tatos v\\'{\\i}s, aliquid d\\v{e}licatiss\\'{\\i}mi a\\v{d} s\\'{\\i}t! Ex his f\\v{e}\\'{u}giat dol\\'{o}res, novum primis \\v{e}ripuit eum \\v{t}e, possim d\\v{e}finit\\'{\\i}onem i\\v{d} nam. Facete hones\\v{t}atis e\\'{a} quo, son\\'{e}t content\\'{\\i}one\\v{s} mea e\\r{u}! Vix ad clita imperdiet referrentur.",
       "Czech: Lořém ipsúm dolór sit amet, no vitaé graecis šed, ůt fůgit tanťas tračtatos vís, aliquid dělicatissími aď sít! Ex his fěúgiat dolóres, novum primis ěripuit eum ťe, possim děfinitíonem iď nam. Facete honesťatis eá quo, sonét contentíoneš mea eů! Vix ad clita imperdiet referrentur."),
      ("Danish: Lorem ipsum dolor sit \\aa{}met, mel \\o{}mnis mucius eu, ex ius habeo facer dicant? Velit forensibus no per, reque animal nam ut. Primis utroque s\\aa{}lut\\aa{}ndi cum \\aa{}n? Cum mentitum ins\\o{}lens hendrerit ei, mea eu sumo forensibus abh\\o{}rre\\ae{}nt. Ne nam mutat n\\o{}luisse platonem, meis zril oblique ne cum.",
@@ -73,35 +74,57 @@ equivalences = map (second pack) [
       "Swedish: Lörem ipsum dolor sit æmet, dicåt necessitatibus sit an. Dolöre semper postulant te eos, nisl regiöne interpretåris eos ei, mælis audire apeirian nö nam. Errem nöminavi copiosae ea cum, lorem debet mnesarchum duo ne, nåm tritæni nominavi te. Pro ne plåcerat ponderum vulputæte?")
     ]
 
-assertParseEquivalence str1 str2 = case parseLatex str1 of
-    Left _ -> assertFailure $ "Should have parsed, but didn't: " ++ str1
-    Right s -> assertBool "LaTeX string error:" $ ICU.compare [] (pack s) str2 == EQ
+equivalenceTests = map (TestCase . uncurry (assertParseEquivalence (bibtexString False))) equivalenceTestCases
 
-equivalenceTests :: [(String, Text)] -> [TestCase]
-equivalenceTests = map (TestCase . uncurry assertParseEquivalence) equivalences
+--------------------------------------------
+
+biblatexTest fileContents =
+    let ss = split (dropDelims . dropBlanks $ onSublist "\n\n") fileContents
+        strings = head ss
+        t1 = TestCase $ assertParse fileContents
+        ts =  map (\c -> TestCase $ assertParse (strings ++ c)) (tail ss)
+    in t1 : ts
+
+--------------------------------------------
+
+assertDoesntParse :: String -> Assertion
+assertDoesntParse str = case parseFile str of
+    Right _ -> assertFailure $ "Should have failed, but parsed: " ++ str
+    Left _ -> return ()
+
+assertParse :: String -> Assertion
+assertParse str = case parseFile str of
+    Left _ -> assertFailure $ "Should have parsed, but didn't: " ++ str
+    Right _ -> return ()
+
+
+shouldFail = [
+    "@Article{key03, title = \"The lonely { brace\",  }",
+    "@Article{key01,  author = \"Simon \\\"the saint\\\" Templar\" }"
+    --, "@Article{key01, title = { The history of @ sign } }" this actually works in BibLateX
+    ]
+
+shouldPass = [
+     "@Article{key03, title = \"A {bunch {of} braces {in}} title\" } ",
+     "@Article{key01,  author = \"Simon {\"}the {saint\"} Templar\" }" ,
+     "@Article{key01, title = \"The history of @ sign\" }"
+     ]
 
 fail1 str = TestCase $ assertDoesntParse str
-
 pass1 str = TestCase $ assertParse str
 
-biblatexTest = TestCase $ do
-    s <- readFile "biblatext-test.bib"
-    assertParse s
-
-trivialTest = TestCase $ assertBool "what?!" True
-
-runTests = runTestTT . TestList $
-    -- biblatexTest
-    -- map fail1 shouldFail
-    -- ++ map pass1 shouldPass
-    -- ++
-    -- equivalenceTests
-    -- [trivialTest]
-    [TestCase . assertParseEquivalence "ciao" $ pack "ciao"]
+runTests s = runTestTT . TestList $
+    latexCommandNameTests
+    ++ biblatexTest s
+    ++ map fail1 shouldFail
+    ++ map pass1 shouldPass
+    ++ equivalenceTests
 
 main :: IO ()
 main = do
-    cs@(Counts _ _ errs fails) <- runTests
+    hSetEncoding stdout utf8
+    s <- readFile "biblatext-test.bib"
+    cs@(Counts _ _ errs fails) <- runTests s
     putStrLn (showCounts cs)
     if errs > 0 || fails > 0
         then exitFailure

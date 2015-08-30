@@ -1,13 +1,15 @@
-module LaTeXParser where
+module LaTeXParser (BibLaTeXParser, parse, latexCommandName, latexCommand) where
 
 import Data.Char
+import Data.List (elem, (\\), nub)
 
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-import Text.Parsec
+import Text.Parsec hiding (parse)
 
 type ParserState = Map String String
+type BibLaTeXParser = Parsec String ParserState
 
 grave = chr 0x300
 acute = chr 0x301
@@ -35,54 +37,19 @@ endash = chr 0x2013
 emdash = chr 0x2014
 nonbreak = chr 0x00a0
 
-latexCommand :: Parsec String ParserState String
-latexCommand = do
-    _ <- char '\\'
-    latexAccent <|> latexSpecial <|> latexNormal
+parse parser string = runParser parser Map.empty "" string
 
+ijNoAccent :: BibLaTeXParser Char
 ijNoAccent = do
     _ <- char '\\'
     char 'i' <|> char 'j'
 
-latexAccent = do
-    accentSel <- oneOf $ concat (Map.keys latexAccents)
-    what <- (letter <|> ijNoAccent) <|> between (char '{') (char '}') (letter <|> ijNoAccent)
-    let accentMod = Map.lookup [accentSel] latexAccents
-    return $ case accentMod of
-        Just accentModUTF -> what : accentModUTF
-        _ -> ['\\', accentSel] ++ [what]
+latexStrangeStarts = (nub ((concat (Map.keys latexAccents)) ++ (concat (Map.keys latexNormals)))) \\ (['a'..'z']++['A'..'Z'])
 
-latexSpecial = do
-    sel <- oneOf $ concat (Map.keys latexSpecials)
-    let spec = Map.lookup [sel] latexSpecials
-    return $ case spec of
-            Just specUTF -> specUTF
-            _ -> '\\' : [sel]
-
-latexNormal = do
-    what <- many1 letter
-    _ <- spaces
-    let res = Map.lookup what latexNormals
-    return $ case res of
-        Just s -> s
-        _ -> '\\' : what
-
-latexSpecials = Map.fromList [
-    (" ", " "), -- -
-    ("%", "%"), -- --
-    ("{", "{"), -- --
-    ("$", "$"), -- -
-    ("_", "_"), -- -
-    ("#", "#"), -- -
-    ("&", "&"), -- -
-    ("}", "}"), -- --
-    ("\\", "\\") -- -
-
-    --("~", "~"),
-    --("{}", "")
-    --("[^][{][}]", "^"),
-    --("[~][{][}]", "~")
-    ]
+latexCommandName :: BibLaTeXParser String
+latexCommandName =
+    char '\\' >>
+    ((count 1 (oneOf latexStrangeStarts)) <|> many1 (letter <|> digit))
 
 latexAccents = Map.fromList [
     ("^", [circumflex]),
@@ -91,11 +58,7 @@ latexAccents = Map.fromList [
     ("\"", [diaeresis]),
     ("~", [tilde]),
     ("=", [macron]),
-    (".", [dotover])
-    ]
-
-latexNormals = Map.fromList [
-    ("P", "¶"),
+    (".", [dotover]),
     ("H", [aacute]),
     ("c", [cedilla]),
     ("k", [ogonek]),
@@ -104,7 +67,24 @@ latexNormals = Map.fromList [
     ("d", [dotunder]),
     ("r", [ring]),
     ("u", [breve]),
-    ("v", [caron]),
+    ("v", [caron])
+    ]
+
+latexNormals = Map.fromList [
+    (" ", " "), -- -
+    ("%", "%"), -- --
+    ("{", "{"), -- --
+    ("$", "$"), -- -
+    ("_", "_"), -- -
+    ("#", "#"), -- -
+    ("&", "&"), -- -
+    ("}", "}"), -- --
+    ("\\", "\\"), -- -
+    --("~", "~"),
+    --("{}", "")
+    --("[^][{][}]", "^"),
+    --("[~][{][}]", "~"),
+    ("P", "¶"),
     ("S", "§"),
     ("aa", "å"),
     ("AA", "Å"),
@@ -119,6 +99,8 @@ latexNormals = Map.fromList [
     ("L", "Ł"),
     ("dh", "ð"),
     ("DH", "Ð"),
+    ("th", "þ"),
+    ("TH", "Þ"),
     ("dj", "đ"),
     ("DJ", "Ð"),
     ("ng", "ŋ"),
@@ -162,3 +144,13 @@ latexNormals = Map.fromList [
     ]
 
 
+latexCommand :: BibLaTeXParser String
+latexCommand = do
+    command <- latexCommandName
+    case Map.lookup command latexNormals of
+         Just specUTF -> return specUTF
+         _ -> case Map.lookup command latexAccents of
+             Just accentModUTF -> do
+                 char <- (letter <|> ijNoAccent) <|> between (char '{') (char '}') (letter <|> ijNoAccent)
+                 return $ char : accentModUTF
+             _ -> return $ '\\' : command

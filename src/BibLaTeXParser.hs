@@ -1,6 +1,6 @@
-module BibLaTeXParser where
+module BibLaTeXParser (parseFile, parseEntry, bibtexString, Field, camelCase) where
 
-import Text.Parsec
+import Text.Parsec hiding (parse)
 import Text.Parsec ((<?>), (<|>))
 
 -- import Control.Applicative
@@ -11,7 +11,7 @@ import Data.Char
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-import LaTeXParser (latexCommand, ParserState)
+import LaTeXParser (latexCommand, BibLaTeXParser, parse)
 
 
 camelCase :: String -> String
@@ -21,7 +21,7 @@ camelCase s = first : last
 
 skipTillEntry = manyTill anyChar (char '@')
 
-entryTypeParser :: Parsec String ParserState String
+entryTypeParser :: BibLaTeXParser String
 entryTypeParser = do
     name <- many1 letter
     spaces
@@ -31,18 +31,18 @@ data Field = Field  { name :: String, value :: String }
 instance Show Field where
     show (Field name content) = show name ++ " = " ++ show content
 
-bibtexString :: Bool -> Parsec String ParserState String
+bibtexString :: Bool -> BibLaTeXParser String
 bibtexString withQuotes = do
     start <-  many1 (noneOf (if withQuotes then ['{','}', '\\'] else ['{','}', '"', '\\'])) <|>  curlyString withQuotes <|>  latexCommand
     end <- option "" $ bibtexString withQuotes
     return $ start ++ end
 
-curlyString :: Bool -> Parsec String ParserState String
+curlyString :: Bool -> BibLaTeXParser String
 curlyString insideQuotes = between (char '{') (char '}') (option "" $ string "\"" <|> bibtexString True)
 
 quotedString = between (char '"') (char '"') $ option "" (bibtexString False)
 
-stringConstant :: Parsec String ParserState String
+stringConstant :: BibLaTeXParser String
 stringConstant = do
     id <- idParser
     s <- getState
@@ -53,7 +53,7 @@ stringConstant = do
             return $ s ++ rest
         _ -> fail $ "String constant " ++ id ++ " undefined"
 
-fieldParser :: Parsec String ParserState Field
+fieldParser :: BibLaTeXParser Field
 fieldParser = do
     name <- idParser
     spaces >> char '=' >> spaces
@@ -69,7 +69,7 @@ idParser = do
     spaces
     return $ firstChar : rest
 
-entryParser :: Parsec String ParserState  (String, String, [Field])
+entryParser :: BibLaTeXParser  (String, String, [Field])
 entryParser = do
     _ <- skipTillEntry
     entryType <- entryTypeParser
@@ -77,7 +77,7 @@ entryParser = do
     (name, fields) <- if entryType == "String" then stringEntryParser else normalEntryParser
     return (entryType, name, fields)
 
-normalEntryParser :: Parsec String ParserState (String, [Field])
+normalEntryParser :: BibLaTeXParser (String, [Field])
 normalEntryParser = do
     name <- idParser
     separator
@@ -86,7 +86,7 @@ normalEntryParser = do
     spaces
     return (name, fields)
 
-stringEntryParser :: Parsec String ParserState (String, [Field])
+stringEntryParser :: BibLaTeXParser (String, [Field])
 stringEntryParser = do
     field <- fieldParser
     _ <- char '}'
@@ -97,8 +97,8 @@ stringEntryParser = do
     return ("", [])
 
 
-parseFile = runParser (sepEndBy entryParser (many $ noneOf ['@'])) Map.empty ""
+parseFile = parse (sepEndBy entryParser (many $ noneOf ['@']))
 
-parseEntry = runParser entryParser Map.empty ""
+parseEntry = parse entryParser
 
-parseLatex = runParser (bibtexString False) Map.empty ""
+parseLatex = parse (bibtexString False)

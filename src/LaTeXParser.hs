@@ -37,19 +37,19 @@ endash = chr 0x2013
 emdash = chr 0x2014
 nonbreak = chr 0x00a0
 
-parse parser string = runParser parser Map.empty "" string
+parse parser = runParser parser Map.empty ""
 
 ijNoAccent :: BibLaTeXParser Char
 ijNoAccent = do
     _ <- char '\\'
     char 'i' <|> char 'j'
 
-latexStrangeStarts = (nub ((concat (Map.keys latexAccents)) ++ (concat (Map.keys latexNormals)))) \\ (['a'..'z']++['A'..'Z'])
+latexStrangeStarts = nub (concat (Map.keys latexAccents)) ++ concat (Map.keys latexNormals) \\ (['a'..'z']++['A'..'Z'])
 
 latexCommandName :: BibLaTeXParser String
 latexCommandName =
     char '\\' >>
-    ((count 1 (oneOf latexStrangeStarts)) <|> many1 (letter <|> digit))
+    (count 1 (oneOf latexStrangeStarts) <|> many1 (letter <|> digit))
 
 latexAccents = Map.fromList [
     ("^", [circumflex]),

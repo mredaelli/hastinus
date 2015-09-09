@@ -12,11 +12,15 @@ data BibPersonList = BibPersonList [BibPerson] Bool
 data BibRange = BibRange (Int, Int)
 data BibRangeList = BibRangeList [BibRange] Bool
 
-data StandardField t = Author BibPersonList |
+data StandardField = Author BibPersonList |
                              Editor BibPersonList |
                              Publisher String |
                              Year Int |
                              Pages BibRangeList
+    deriving (Show, Eq, Read)
+
+instance Read Year where
+    readsPrec _ input = [2005, ""]
 
 data BibEntry = BibEntry { kind :: BibType, id_ :: String, fields :: [Field] }
     deriving (Show)

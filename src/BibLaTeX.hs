@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 module BibLaTeX where
 
 import BibLaTeXParser (Field, camelCase)
@@ -12,11 +13,13 @@ data BibPersonList = BibPersonList [BibPerson] Bool
 data BibRange = BibRange (Int, Int)
 data BibRangeList = BibRangeList [BibRange] Bool
 
-data StandardField t = Author BibPersonList |
-                             Editor BibPersonList |
-                             Publisher String |
-                             Year Int |
-                             Pages BibRangeList
+data StandardField t where
+    Author :: StandarField BibPersonList
+    Editor :: StandarField BibPersonList
+    Publisher :: StandarField String
+    Year :: StandarField Int
+    Pages :: StandarField BibRangeList
+    Generic :: StandarField String
 
 data BibEntry = BibEntry { kind :: BibType, id_ :: String, fields :: [Field] }
     deriving (Show)

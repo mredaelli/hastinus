@@ -3,7 +3,6 @@ module BibLaTeXParser (parseFile, parseEntry, bibtexString, Field, camelCase) wh
 import Text.Parsec hiding (parse)
 import Text.Parsec ((<?>), (<|>))
 
--- import Control.Applicative
 import Control.Monad.Identity (Identity)
 
 import Data.Char
@@ -33,7 +32,7 @@ instance Show Field where
 
 bibtexString :: Bool -> BibLaTeXParser String
 bibtexString withQuotes = do
-    start <-  many1 (noneOf (if withQuotes then ['{','}', '\\'] else ['{','}', '"', '\\'])) <|>  curlyString withQuotes <|>  latexCommand
+    start <-  many1 (noneOf (if withQuotes then "{}\\" else "{}\\\"")) <|> curlyString withQuotes <|> latexCommand
     end <- option "" $ bibtexString withQuotes
     return $ start ++ end
 
@@ -56,16 +55,16 @@ stringConstant = do
 fieldParser :: BibLaTeXParser Field
 fieldParser = do
     name <- idParser
-    spaces >> char '=' >> spaces
+    _ <- spaces >> char '=' >> spaces
     content <- curlyString False <|> quotedString <|> many1 digit <|> stringConstant
-    spaces
+    _ <- spaces
     return $ Field name content
 
 separator = char ',' >> spaces
 
 idParser = do
     firstChar <- letter
-    rest <- many (noneOf [' ', '{', '}', '"', '=', ',', '@'])
+    rest <- many (noneOf " {}\"=,@")
     spaces
     return $ firstChar : rest
 
@@ -97,7 +96,7 @@ stringEntryParser = do
     return ("", [])
 
 
-parseFile = parse (sepEndBy entryParser (many $ noneOf ['@']))
+parseFile = parse (sepEndBy entryParser (many $ noneOf "@"))
 
 parseEntry = parse entryParser
 

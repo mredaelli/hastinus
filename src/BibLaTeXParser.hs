@@ -1,4 +1,11 @@
-module BibLaTeXParser (parseFile, parseEntry, bibtexString, Field, camelCase) where
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE LiberalTypeSynonyms #-}
+{-# LANGUAGE ImpredicativeTypes #-}
+
+module BibLaTeXParser (parseFile, parseEntry, bibtexString, Field, camelCase, normalEntryParser) where
+
+import BibLaTeX
 
 import Text.Parsec hiding (parse)
 import Text.Parsec ((<?>), (<|>))
@@ -26,9 +33,11 @@ entryTypeParser = do
     spaces
     return $ camelCase name
 
+{-
 data Field = Field  { name :: String, value :: String }
 instance Show Field where
     show (Field name content) = show name ++ " = " ++ show content
+-}
 
 bibtexString :: Bool -> BibLaTeXParser String
 bibtexString withQuotes = do
@@ -52,13 +61,22 @@ stringConstant = do
             return $ s ++ rest
         _ -> fail $ "String constant " ++ id ++ " undefined"
 
-fieldParser :: BibLaTeXParser Field
+fieldParser :: BibLaTeXParser (Field)
 fieldParser = do
     name <- idParser
     _ <- spaces >> char '=' >> spaces
     content <- curlyString False <|> quotedString <|> many1 digit <|> stringConstant
     _ <- spaces
-    return $ Field name content
+    let fff = if name == "ciao" then
+                Field (Generic name content)
+            else
+                Field (Year 12)
+    return fff
+ {-
+    case mkConstr x of
+        Just c -> return $ c name content
+        Nothing -> return $ Generic name content
+-}
 
 separator = char ',' >> spaces
 
@@ -68,7 +86,7 @@ idParser = do
     spaces
     return $ firstChar : rest
 
-entryParser :: BibLaTeXParser  (String, String, [Field])
+--entryParser :: BibLaTeXParser  (String, String, [Field t])
 entryParser = do
     _ <- skipTillEntry
     entryType <- entryTypeParser
@@ -80,10 +98,10 @@ normalEntryParser :: BibLaTeXParser (String, [Field])
 normalEntryParser = do
     name <- idParser
     separator
-    fields <- sepEndBy fieldParser separator
+    fields <- sepEndBy fieldParser separator -- todo: skip repeated fields
     _ <- char '}'
     spaces
-    return (name, fields)
+    return $ (name, fields)
 
 stringEntryParser :: BibLaTeXParser (String, [Field])
 stringEntryParser = do
@@ -91,9 +109,14 @@ stringEntryParser = do
     _ <- char '}'
     spaces
     s <- getState
-    let s' = Map.insert (name field) (value field) s
+    let (name, value) =
+                case field of
+                     Field (Generic a b) -> (a, b)
+                     _ -> ("", "")
+    let s' = Map.insert (name) (value) s
+
     setState s'
-    return ("", [])
+    return $ ("", [])
 
 
 parseFile = parse (sepEndBy entryParser (many $ noneOf "@"))

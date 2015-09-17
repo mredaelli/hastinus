@@ -44,7 +44,7 @@ ijNoAccent = do
     _ <- char '\\'
     char 'i' <|> char 'j'
 
-latexStrangeStarts = nub (concat (Map.keys latexAccents)) ++ concat (Map.keys latexNormals) \\ (['a'..'z']++['A'..'Z'])
+latexStrangeStarts = (nub (concat (Map.keys latexAccents)) ++ concat (Map.keys latexNormals)) \\ (['a'..'z']++['A'..'Z'])
 
 latexCommandName :: BibLaTeXParser String
 latexCommandName =

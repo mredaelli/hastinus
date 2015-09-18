@@ -2,14 +2,16 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module BibLaTeX where
 
-import Data.Data (Data, readConstr)
+import Data.Data (Data, readConstr, toConstr)
 import Data.Typeable
 
 import Data.Maybe
-import Text.Read
+import Text.Read hiding (get)
 
 --------------------
 -- Fields
@@ -37,10 +39,22 @@ data Field' t where
     Year :: Int -> IntField
     Pages  :: BibRange -> RangeField
     Generic :: String -> String -> StringField
---} deriving (Data, Typeable)
+
+deriving instance Data (Field' t)
+--deriving instance Typeable t => Typeable (Field' t)
 
 data Field = forall t. Field (Field' t)
 type Fields = [Field]
+
+fields = fmap Field
+
+get :: (t -> Field' t) -> Fields -> Maybe t
+get c v = case v of
+    [] -> Nothing
+    _ -> let
+            (h : r) = v
+            con = toConstr h
+         in if c == con then Just $ unpack h else get c r
 
 class FieldLike t
 
@@ -71,9 +85,9 @@ data BibType = Book | Article | Incollection | Set | Collection | Manual | Onlin
     deriving (Show, Eq, Enum, Bounded, Read)
 
 
-data BibEntry = BibEntry { kind :: BibType, id_ :: String, fields :: Fields }
+data BibEntry = BibEntry { kind :: BibType, id_ :: String, fieldList :: Fields }
 
---tttt = BibEntry { kind = Book, id_ = "ggg", fields = Fields [f1, f12]}
+tttt = BibEntry { kind = Book, id_ = "ggg", fieldList = fields [f1, f12]}
 
 {-
 toBibTeX :: (String, String, [Field]) -> Maybe BibEntry

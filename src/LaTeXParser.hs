@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module LaTeXParser (BibLaTeXParser, parse, latexCommandName, latexCommand) where
 
 import Data.Char
